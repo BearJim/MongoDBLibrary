@@ -13,28 +13,28 @@ import (
 	"github.com/free5gc/MongoDBLibrary/logger"
 )
 
-var Client *mongo.Client = nil
-var dbName string
+type Client struct {
+	mongoClient *mongo.Client
+	db          *mongo.Database
+}
 
-func SetMongoDB(setdbName string, url string) {
-
-	if Client != nil {
-		return
-	}
+func New(dbName string, url string) (*Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(url))
 	defer cancel()
 	if err != nil {
-		//defer cancel()
-		logger.MongoDBLog.Panic(err.Error())
+		return nil, err
 	}
-	Client = client
-	dbName = setdbName
+
+	c := &Client{
+		mongoClient: client,
+		db:          client.Database(dbName),
+	}
+	return c, nil
 }
 
-func RestfulAPIGetOne(collName string, filter bson.M) map[string]interface{} {
-
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIGetOne(collName string, filter bson.M) map[string]interface{} {
+	collection := c.db.Collection(collName)
 
 	var result map[string]interface{}
 	collection.FindOne(context.TODO(), filter).Decode(&result)
@@ -42,8 +42,8 @@ func RestfulAPIGetOne(collName string, filter bson.M) map[string]interface{} {
 	return result
 }
 
-func RestfulAPIGetMany(collName string, filter bson.M) []map[string]interface{} {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIGetMany(collName string, filter bson.M) []map[string]interface{} {
+	collection := c.db.Collection(collName)
 
 	var resultArray []map[string]interface{}
 
@@ -70,8 +70,8 @@ func RestfulAPIGetMany(collName string, filter bson.M) []map[string]interface{} 
 
 }
 
-func RestfulAPIPutOne(collName string, filter bson.M, putData map[string]interface{}) bool {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIPutOne(collName string, filter bson.M, putData map[string]interface{}) bool {
+	collection := c.db.Collection(collName)
 
 	var checkItem map[string]interface{}
 	collection.FindOne(context.TODO(), filter).Decode(&checkItem)
@@ -85,8 +85,8 @@ func RestfulAPIPutOne(collName string, filter bson.M, putData map[string]interfa
 	}
 }
 
-func RestfulAPIPutOneNotUpdate(collName string, filter bson.M, putData map[string]interface{}) bool {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIPutOneNotUpdate(collName string, filter bson.M, putData map[string]interface{}) bool {
+	collection := c.db.Collection(collName)
 
 	var checkItem map[string]interface{}
 	collection.FindOne(context.TODO(), filter).Decode(&checkItem)
@@ -100,8 +100,8 @@ func RestfulAPIPutOneNotUpdate(collName string, filter bson.M, putData map[strin
 	}
 }
 
-func RestfulAPIPutMany(collName string, filterArray []bson.M, putDataArray []map[string]interface{}) bool {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIPutMany(collName string, filterArray []bson.M, putDataArray []map[string]interface{}) bool {
+	collection := c.db.Collection(collName)
 
 	var checkItem map[string]interface{}
 	for i, putData := range putDataArray {
@@ -124,20 +124,20 @@ func RestfulAPIPutMany(collName string, filterArray []bson.M, putDataArray []map
 
 }
 
-func RestfulAPIDeleteOne(collName string, filter bson.M) {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIDeleteOne(collName string, filter bson.M) {
+	collection := c.db.Collection(collName)
 
 	collection.DeleteOne(context.TODO(), filter)
 }
 
-func RestfulAPIDeleteMany(collName string, filter bson.M) {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIDeleteMany(collName string, filter bson.M) {
+	collection := c.db.Collection(collName)
 
 	collection.DeleteMany(context.TODO(), filter)
 }
 
-func RestfulAPIMergePatch(collName string, filter bson.M, patchData map[string]interface{}) bool {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIMergePatch(collName string, filter bson.M, patchData map[string]interface{}) bool {
+	collection := c.db.Collection(collName)
 
 	var originalData map[string]interface{}
 	result := collection.FindOne(context.TODO(), filter)
@@ -166,8 +166,8 @@ func RestfulAPIMergePatch(collName string, filter bson.M, patchData map[string]i
 	}
 }
 
-func RestfulAPIJSONPatch(collName string, filter bson.M, patchJSON []byte) bool {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIJSONPatch(collName string, filter bson.M, patchJSON []byte) bool {
+	collection := c.db.Collection(collName)
 
 	var originalData map[string]interface{}
 	result := collection.FindOne(context.TODO(), filter)
@@ -197,8 +197,8 @@ func RestfulAPIJSONPatch(collName string, filter bson.M, patchJSON []byte) bool 
 
 }
 
-func RestfulAPIJSONPatchExtend(collName string, filter bson.M, patchJSON []byte, dataName string) bool {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIJSONPatchExtend(collName string, filter bson.M, patchJSON []byte, dataName string) bool {
+	collection := c.db.Collection(collName)
 
 	var originalDataCover map[string]interface{}
 	result := collection.FindOne(context.TODO(), filter)
@@ -228,8 +228,8 @@ func RestfulAPIJSONPatchExtend(collName string, filter bson.M, patchJSON []byte,
 	}
 }
 
-func RestfulAPIPost(collName string, filter bson.M, postData map[string]interface{}) bool {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIPost(collName string, filter bson.M, postData map[string]interface{}) bool {
+	collection := c.db.Collection(collName)
 
 	var checkItem map[string]interface{}
 	collection.FindOne(context.TODO(), filter).Decode(&checkItem)
@@ -243,9 +243,14 @@ func RestfulAPIPost(collName string, filter bson.M, postData map[string]interfac
 	}
 }
 
-func RestfulAPIPostMany(collName string, filter bson.M, postDataArray []interface{}) bool {
-	collection := Client.Database(dbName).Collection(collName)
+func (c *Client) RestfulAPIPostMany(collName string, filter bson.M, postDataArray []interface{}) bool {
+	collection := c.db.Collection(collName)
 
 	collection.InsertMany(context.TODO(), postDataArray)
 	return false
+}
+
+func (c *Client) Watch(ctx context.Context, collName string, pipeline mongo.Pipeline) (*mongo.ChangeStream, error) {
+	collection := c.db.Collection(collName)
+	return collection.Watch(ctx, pipeline, options.ChangeStream().SetFullDocument(options.UpdateLookup))
 }
