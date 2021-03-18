@@ -228,6 +228,20 @@ func (c *Client) RestfulAPIJSONPatchExtend(collName string, filter bson.M, patch
 	}
 }
 
+func (c *Client) InsertOne(collName string, data interface{}) (*mongo.InsertOneResult, error) {
+	collection := c.db.Collection(collName)
+	return collection.InsertOne(context.TODO(), data)
+}
+
+func (c *Client) Database() *mongo.Database {
+	return c.db
+}
+
+func (c *Client) FindOne(collName string, filter interface{}) *mongo.SingleResult {
+	collection := c.db.Collection(collName)
+	return collection.FindOne(context.TODO(), filter)
+}
+
 func (c *Client) RestfulAPIPost(collName string, filter bson.M, postData map[string]interface{}) bool {
 	collection := c.db.Collection(collName)
 
