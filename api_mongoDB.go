@@ -19,7 +19,7 @@ type Client struct {
 }
 
 func New(dbName string, url string) (*Client, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(url))
 	defer cancel()
 	if err != nil {
