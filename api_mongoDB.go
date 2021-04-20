@@ -9,8 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"github.com/free5gc/MongoDBLibrary/logger"
 )
 
 type Client struct {
@@ -42,7 +40,7 @@ func (c *Client) RestfulAPIGetOne(collName string, filter bson.M) map[string]int
 	return result
 }
 
-func (c *Client) RestfulAPIGetMany(collName string, filter bson.M) []map[string]interface{} {
+func (c *Client) RestfulAPIGetMany(collName string, filter bson.M) ([]map[string]interface{}, error) {
 	collection := c.db.Collection(collName)
 
 	var resultArray []map[string]interface{}
@@ -51,23 +49,22 @@ func (c *Client) RestfulAPIGetMany(collName string, filter bson.M) []map[string]
 	cur, err := collection.Find(ctx, filter)
 	defer cancel()
 	if err != nil {
-		logger.MongoDBLog.Fatal(err)
+		return nil, err
 	}
 	defer cur.Close(ctx)
 	for cur.Next(ctx) {
 		var result map[string]interface{}
 		err := cur.Decode(&result)
 		if err != nil {
-			logger.MongoDBLog.Fatal(err)
+			return nil, err
 		}
 		resultArray = append(resultArray, result)
 	}
 	if err := cur.Err(); err != nil {
-		logger.MongoDBLog.Fatal(err)
+		return nil, err
+
 	}
-
-	return resultArray
-
+	return resultArray, nil
 }
 
 func (c *Client) RestfulAPIPutOne(collName string, filter bson.M, putData map[string]interface{}) bool {
@@ -136,75 +133,75 @@ func (c *Client) RestfulAPIDeleteMany(collName string, filter bson.M) {
 	collection.DeleteMany(context.TODO(), filter)
 }
 
-func (c *Client) RestfulAPIMergePatch(collName string, filter bson.M, patchData map[string]interface{}) bool {
+func (c *Client) RestfulAPIMergePatch(collName string, filter bson.M, patchData map[string]interface{}) (bool, error) {
 	collection := c.db.Collection(collName)
 
 	var originalData map[string]interface{}
 	result := collection.FindOne(context.TODO(), filter)
 
 	if err := result.Decode(&originalData); err != nil { // Data doesn't exist in DB
-		return false
+		return false, err
 	} else {
 		delete(originalData, "_id")
 		original, _ := json.Marshal(originalData)
 
 		patchDataByte, err := json.Marshal(patchData)
 		if err != nil {
-			logger.MongoDBLog.Panic(err)
+			return false, err
 		}
 
 		modifiedAlternative, err := jsonpatch.MergePatch(original, patchDataByte)
 		if err != nil {
-			logger.MongoDBLog.Panic(err)
+			return false, err
 		}
 
 		var modifiedData map[string]interface{}
 
 		json.Unmarshal(modifiedAlternative, &modifiedData)
 		collection.UpdateOne(context.TODO(), filter, bson.M{"$set": modifiedData})
-		return true
+		return true, nil
 	}
 }
 
-func (c *Client) RestfulAPIJSONPatch(collName string, filter bson.M, patchJSON []byte) bool {
+func (c *Client) RestfulAPIJSONPatch(collName string, filter bson.M, patchJSON []byte) (bool, error) {
 	collection := c.db.Collection(collName)
 
 	var originalData map[string]interface{}
 	result := collection.FindOne(context.TODO(), filter)
 
 	if err := result.Decode(&originalData); err != nil { // Data doesn't exist in DB
-		return false
+		return false, err
 	} else {
 		delete(originalData, "_id")
 		original, _ := json.Marshal(originalData)
 
 		patch, err := jsonpatch.DecodePatch(patchJSON)
 		if err != nil {
-			logger.MongoDBLog.Panic(err)
+			return false, err
 		}
 
 		modified, err := patch.Apply(original)
 		if err != nil {
-			logger.MongoDBLog.Panic(err)
+			return false, err
 		}
 
 		var modifiedData map[string]interface{}
 
 		json.Unmarshal(modified, &modifiedData)
 		collection.UpdateOne(context.TODO(), filter, bson.M{"$set": modifiedData})
-		return true
+		return true, nil
 	}
 
 }
 
-func (c *Client) RestfulAPIJSONPatchExtend(collName string, filter bson.M, patchJSON []byte, dataName string) bool {
+func (c *Client) RestfulAPIJSONPatchExtend(collName string, filter bson.M, patchJSON []byte, dataName string) (bool, error) {
 	collection := c.db.Collection(collName)
 
 	var originalDataCover map[string]interface{}
 	result := collection.FindOne(context.TODO(), filter)
 
 	if err := result.Decode(&originalDataCover); err != nil { // Data does'nt exist in db
-		return false
+		return false, err
 	} else {
 		delete(originalDataCover, "_id")
 		originalData := originalDataCover[dataName]
@@ -213,18 +210,18 @@ func (c *Client) RestfulAPIJSONPatchExtend(collName string, filter bson.M, patch
 		jsonpatch.DecodePatch(patchJSON)
 		patch, err := jsonpatch.DecodePatch(patchJSON)
 		if err != nil {
-			logger.MongoDBLog.Panic(err)
+			return false, err
 		}
 
 		modified, err := patch.Apply(original)
 		if err != nil {
-			logger.MongoDBLog.Panic(err)
+			return false, err
 		}
 
 		var modifiedData map[string]interface{}
 		json.Unmarshal(modified, &modifiedData)
 		collection.UpdateOne(context.TODO(), filter, bson.M{"$set": bson.M{dataName: modifiedData}})
-		return true
+		return true, nil
 	}
 }
 
